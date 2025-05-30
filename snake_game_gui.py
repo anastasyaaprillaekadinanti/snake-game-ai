@@ -49,9 +49,11 @@ def astar(start, goal, snake_body):
 
 def start_game():
     global direction, snake_coords, score
+    play_again_btn.pack_forget()  # Sembunyikan tombol saat mulai game baru
     direction = 'Right'
     snake_coords.clear()
     snake_coords.extend([(100, 100), (80, 100), (60, 100)])
+    score = 0
     score_label.config(text="Score: 0")
     canvas.delete("all")
     place_food()
@@ -82,10 +84,12 @@ def move_snake():
     else:
         new_head = (head_x + SNAKE_SIZE, head_y)
 
+    # Game Over kondisi
     if (new_head[0] < 0 or new_head[0] >= WIDTH or
         new_head[1] < 0 or new_head[1] >= HEIGHT or
         new_head in snake_coords):
         canvas.create_text(WIDTH / 2, HEIGHT / 2, text="Game Over", fill="red", font=("Arial", 24))
+        play_again_btn.pack()  # Tampilkan tombol Play Again
         return
 
     snake_coords = [new_head] + snake_coords
@@ -140,6 +144,10 @@ score_label.pack()
 
 mode_btn = tk.Button(root, text="Mode: AI", command=toggle_mode)
 mode_btn.pack()
+
+play_again_btn = tk.Button(root, text="Play Again", command=start_game)
+play_again_btn.pack()
+play_again_btn.pack_forget()  # Sembunyikan dulu sampai game over
 
 # Keyboard control
 root.bind("<Up>", lambda e: change_direction("Up"))
