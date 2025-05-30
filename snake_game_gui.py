@@ -2,159 +2,168 @@ import tkinter as tk
 import random
 import heapq
 
-# Ukuran permainan
+# Konfigurasi dasar
 WIDTH = 600
 HEIGHT = 400
-SNAKE_SIZE = 20
-DELAY = 100  # ms
+GRID = 20
+DELAY = 100
 
-# Variabel global
-direction = 'Right'
-snake_coords = []
-food_coord = (0, 0)
+# Game state
+snake = []
+food = (0, 0)
 score = 0
-use_ai = True
+direction = 'Right'
+is_ai = True
 
-def heuristic(a, b):
+# Fungsi heuristik Manhattan
+def heuristik(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
-def astar(start, goal, snake_body):
-    open_set = []
-    heapq.heappush(open_set, (0 + heuristic(start, goal), 0, start))
-    came_from = {}
-    g_score = {start: 0}
-    directions = [(SNAKE_SIZE, 0), (-SNAKE_SIZE, 0), (0, SNAKE_SIZE), (0, -SNAKE_SIZE)]
+# A* pathfinding
+def cari_jalur(start, goal, badan):
+    bukaan = []
+    heapq.heappush(bukaan, (heuristik(start, goal), 0, start))
+    asal = {}
+    skor_g = {start: 0}
+    gerakan = [(GRID, 0), (-GRID, 0), (0, GRID), (0, -GRID)]
 
-    while open_set:
-        _, current_g, current = heapq.heappop(open_set)
-        if current == goal:
-            path = []
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
-            path.reverse()
-            return path
+    while bukaan:
+        _, g_sekarang, pos = heapq.heappop(bukaan)
+        if pos == goal:
+            jalur = []
+            while pos in asal:
+                jalur.append(pos)
+                pos = asal[pos]
+            return jalur[::-1]
 
-        for dx, dy in directions:
-            neighbor = (current[0] + dx, current[1] + dy)
-            if (0 <= neighbor[0] < WIDTH and 0 <= neighbor[1] < HEIGHT and neighbor not in snake_body):
-                tentative_g_score = current_g + 1
-                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    f_score = tentative_g_score + heuristic(neighbor, goal)
-                    heapq.heappush(open_set, (f_score, tentative_g_score, neighbor))
+        for dx, dy in gerakan:
+            next_pos = (pos[0] + dx, pos[1] + dy)
+            if 0 <= next_pos[0] < WIDTH and 0 <= next_pos[1] < HEIGHT and next_pos not in badan:
+                g_baru = g_sekarang + 1
+                if next_pos not in skor_g or g_baru < skor_g[next_pos]:
+                    asal[next_pos] = pos
+                    skor_g[next_pos] = g_baru
+                    f = g_baru + heuristik(next_pos, goal)
+                    heapq.heappush(bukaan, (f, g_baru, next_pos))
+    return []
 
-    return None
-
-def start_game():
-    global direction, snake_coords, score
-    play_again_btn.pack_forget()  # Sembunyikan tombol saat mulai game baru
+# Mulai ulang game
+def mulai_game():
+    global snake, direction, score
+    play_again_btn.place_forget()
     direction = 'Right'
-    snake_coords.clear()
-    snake_coords.extend([(100, 100), (80, 100), (60, 100)])
+    snake = [(100, 100), (80, 100), (60, 100)]
     score = 0
-    score_label.config(text="Score: 0")
+    update_skor()
     canvas.delete("all")
-    place_food()
-    move_snake()
+    letakkan_makanan()
+    gerak_ular()
 
-def move_snake():
-    global direction, snake_coords, food_coord, score
+# Gerakan ular
+def gerak_ular():
+    global snake, food, direction, score
 
-    if use_ai:
-        path = astar(snake_coords[0], food_coord, snake_coords)
-        if path and len(path) > 0:
-            next_pos = path[0]
-            dx = next_pos[0] - snake_coords[0][0]
-            dy = next_pos[1] - snake_coords[0][1]
-            if dx == SNAKE_SIZE: direction = 'Right'
-            elif dx == -SNAKE_SIZE: direction = 'Left'
-            elif dy == SNAKE_SIZE: direction = 'Down'
-            elif dy == -SNAKE_SIZE: direction = 'Up'
+    if is_ai:
+        jalur = cari_jalur(snake[0], food, snake)
+        if jalur:
+            tujuan = jalur[0]
+            dx = tujuan[0] - snake[0][0]
+            dy = tujuan[1] - snake[0][1]
+            if dx == GRID: direction = 'Right'
+            elif dx == -GRID: direction = 'Left'
+            elif dy == GRID: direction = 'Down'
+            elif dy == -GRID: direction = 'Up'
 
-    head_x, head_y = snake_coords[0]
-
+    kepala = snake[0]
     if direction == 'Up':
-        new_head = (head_x, head_y - SNAKE_SIZE)
+        baru = (kepala[0], kepala[1] - GRID)
     elif direction == 'Down':
-        new_head = (head_x, head_y + SNAKE_SIZE)
+        baru = (kepala[0], kepala[1] + GRID)
     elif direction == 'Left':
-        new_head = (head_x - SNAKE_SIZE, head_y)
+        baru = (kepala[0] - GRID, kepala[1])
     else:
-        new_head = (head_x + SNAKE_SIZE, head_y)
+        baru = (kepala[0] + GRID, kepala[1])
 
-    # Game Over kondisi
-    if (new_head[0] < 0 or new_head[0] >= WIDTH or
-        new_head[1] < 0 or new_head[1] >= HEIGHT or
-        new_head in snake_coords):
-        canvas.create_text(WIDTH / 2, HEIGHT / 2, text="Game Over", fill="red", font=("Arial", 24))
-        play_again_btn.pack()  # Tampilkan tombol Play Again
+    if baru in snake or not (0 <= baru[0] < WIDTH and 0 <= baru[1] < HEIGHT):
+        game_over()
         return
 
-    snake_coords = [new_head] + snake_coords
-
-    if new_head == food_coord:
+    snake.insert(0, baru)
+    if baru == food:
         score += 1
-        score_label.config(text=f"Score: {score}")
-        place_food()
+        update_skor()
+        letakkan_makanan()
     else:
-        snake_coords.pop()
+        snake.pop()
 
-    draw_snake()
-    root.after(DELAY, move_snake)
+    gambar()
+    root.after(DELAY, gerak_ular)
 
-def draw_snake():
-    canvas.delete("snake")
-    for x, y in snake_coords:
-        canvas.create_rectangle(x, y, x + SNAKE_SIZE, y + SNAKE_SIZE, fill="green", tag="snake")
-    canvas.delete("food")
-    fx, fy = food_coord
-    canvas.create_oval(fx, fy, fx + SNAKE_SIZE, fy + SNAKE_SIZE, fill="red", tag="food")
+# Gambar ulang layar
+def gambar():
+    canvas.delete("snake", "food")
+    for x, y in snake:
+        canvas.create_rectangle(x, y, x+GRID, y+GRID, fill="green", tag="snake")
+    fx, fy = food
+    canvas.create_oval(fx, fy, fx+GRID, fy+GRID, fill="red", tag="food")
 
-def place_food():
-    global food_coord
+# Letakkan makanan acak
+def letakkan_makanan():
+    global food
     while True:
-        x = random.randint(0, (WIDTH - SNAKE_SIZE) // SNAKE_SIZE) * SNAKE_SIZE
-        y = random.randint(0, (HEIGHT - SNAKE_SIZE) // SNAKE_SIZE) * SNAKE_SIZE
-        if (x, y) not in snake_coords:
-            food_coord = (x, y)
+        x = random.randint(0, (WIDTH - GRID) // GRID) * GRID
+        y = random.randint(0, (HEIGHT - GRID) // GRID) * GRID
+        if (x, y) not in snake:
+            food = (x, y)
             break
 
-def change_direction(new_dir):
+# Update skor
+def update_skor():
+    skor_label.config(text=f"Skor: {score}")
+
+# Arah manual
+def ubah_arah(baru):
     global direction
-    opposite = {'Up': 'Down', 'Down': 'Up', 'Left': 'Right', 'Right': 'Left'}
-    if not use_ai and new_dir != opposite.get(direction):
-        direction = new_dir
+    if not is_ai:
+        lawan = {'Up': 'Down', 'Down': 'Up', 'Left': 'Right', 'Right': 'Left'}
+        if baru != lawan.get(direction):
+            direction = baru
 
-def toggle_mode():
-    global use_ai
-    use_ai = not use_ai
-    mode_btn.config(text=f"Mode: {'AI' if use_ai else 'Manual'}")
+# AI atau manual toggle
+def ganti_mode():
+    global is_ai
+    is_ai = not is_ai
+    mode_btn.config(text=f"Mode: {'AI' if is_ai else 'Manual'}")
 
-# Setup window
+# Game over handler
+def game_over():
+    canvas.create_text(WIDTH/2, HEIGHT/2 - 40, text="Game Over", fill="red", font=("Helvetica", 28, "bold"))
+    play_again_btn.place(relx=0.5, rely=0.5, anchor="center")
+
+# GUI setup
 root = tk.Tk()
-root.title("Snake Game with AI and Score")
+root.title("Ular AI - Snake Game")
 
 canvas = tk.Canvas(root, width=WIDTH, height=HEIGHT, bg="black")
 canvas.pack()
 
-score_label = tk.Label(root, text="Score: 0", font=("Arial", 14))
-score_label.pack()
+frame_ui = tk.Frame(root)
+frame_ui.pack(pady=5)
 
-mode_btn = tk.Button(root, text="Mode: AI", command=toggle_mode)
-mode_btn.pack()
+skor_label = tk.Label(frame_ui, text="Skor: 0", font=("Arial", 14))
+skor_label.pack(side="left", padx=10)
 
-play_again_btn = tk.Button(root, text="Play Again", command=start_game)
-play_again_btn.pack()
-play_again_btn.pack_forget()  # Sembunyikan dulu sampai game over
+mode_btn = tk.Button(frame_ui, text="Mode: AI", command=ganti_mode)
+mode_btn.pack(side="left", padx=10)
 
-# Keyboard control
-root.bind("<Up>", lambda e: change_direction("Up"))
-root.bind("<Down>", lambda e: change_direction("Down"))
-root.bind("<Left>", lambda e: change_direction("Left"))
-root.bind("<Right>", lambda e: change_direction("Right"))
+play_again_btn = tk.Button(root, text="Main Lagi", font=("Arial", 14, "bold"),
+                           bg="#00cc66", fg="white", activebackground="#00aa55", command=mulai_game)
 
-# Start game
-start_game()
+root.bind("<Up>", lambda e: ubah_arah("Up"))
+root.bind("<Down>", lambda e: ubah_arah("Down"))
+root.bind("<Left>", lambda e: ubah_arah("Left"))
+root.bind("<Right>", lambda e: ubah_arah("Right"))
+
+# Mulai game
+mulai_game()
 root.mainloop()
