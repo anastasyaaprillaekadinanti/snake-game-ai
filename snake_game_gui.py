@@ -1,6 +1,6 @@
 import tkinter as tk
 import random
-#halo-halo tes tes
+
 # Ukuran permainan
 WIDTH = 600
 HEIGHT = 400
